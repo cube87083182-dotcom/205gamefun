@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEON RPS ARENA - 온라인 랜덤 매칭 가위바위보</title>
+  <title>NEON RPS ARENA - 1:1 랜덤 매칭 가위바위보</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     * {
@@ -23,7 +23,6 @@
       --cyan: #00f5d4;
       --pink: #ff2a85;
       --yellow: #fee440;
-      --purple: #9b5de5;
       --text: #f1f5f9;
       --muted: #94a3b8;
     }
@@ -186,7 +185,6 @@
       font-weight: 600;
     }
 
-    /* 대기실 코드 표시 */
     .code-box {
       text-align: center;
       background: #0b0f20;
@@ -203,11 +201,10 @@
       color: var(--cyan);
     }
 
-    /* 랜덤 매칭 로딩 스피너 */
     .radar {
       width: 74px;
       height: 74px;
-      margin: 10px auto 18px;
+      margin: 10px auto 14px;
       border-radius: 50%;
       border: 4px solid rgba(254, 228, 64, 0.2);
       border-top-color: var(--yellow);
@@ -218,7 +215,18 @@
       to { transform: rotate(360deg); }
     }
 
-    /* 대전 화면 */
+    .count-pill {
+      display: inline-block;
+      background: rgba(0, 245, 212, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 245, 212, 0.4);
+      font-weight: 900;
+      font-size: 1.1rem;
+      padding: 4px 14px;
+      border-radius: 99px;
+      margin-bottom: 10px;
+    }
+
     .scoreboard {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -377,28 +385,10 @@
       20% { opacity: 1; transform: translateY(0) scale(1.1); }
       100% { opacity: 0; transform: translateY(-90px) scale(1); }
     }
-
-    /* 커스텀 알림 토스트 (alert 대체) */
-    .toast-box {
-      position: absolute;
-      top: 64px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 42, 133, 0.95);
-      color: #fff;
-      padding: 10px 18px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 700;
-      z-index: 50;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-      animation: fadeIn 0.2s ease;
-      white-space: nowrap;
-    }
   </style>
 </head>
 <body>
-  <div class="app" id="appRoot">
+  <div class="app">
     <header>
       <div class="logo">NEON RPS ARENA</div>
       <div class="row">
@@ -416,7 +406,7 @@
           <button id="randomNickBtn" class="icon-btn" title="랜덤 닉네임">🎲</button>
         </div>
 
-        <button id="randomMatchBtn" class="btn btn-random" style="margin-bottom: 10px;">🎲 랜덤 매치 (빠른 대전)</button>
+        <button id="randomMatchBtn" class="btn btn-random" style="margin-bottom: 10px;">🎲 1:1 랜덤 매치</button>
         <div class="row">
           <button id="createRoomBtn" class="btn btn-cyan">⚡ 방 만들기</button>
           <button id="botModeBtn" class="btn btn-dark">🤖 AI 연습</button>
@@ -434,12 +424,13 @@
       <div id="lobbyStatus" class="status-msg"></div>
     </section>
 
-    <!-- 2-A. 랜덤 매칭 대기 화면 -->
+    <!-- 2-A. 1:1 랜덤 매칭 대기 화면 -->
     <section id="matchScreen" class="screen">
       <div class="card" style="text-align: center; padding: 28px 20px;">
         <div class="radar"></div>
-        <h2 style="font-size: 1.25rem; margin-bottom: 8px; color: var(--yellow);">상대 플레이어 찾는 중...</h2>
-        <p id="matchStatus" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">랜덤 매치 대기열 탐색 중입니다</p>
+        <div id="matchCountBadge" class="count-pill">인원 1 / 2</div>
+        <h2 style="font-size: 1.25rem; margin-bottom: 8px; color: var(--yellow);">상대 1명 찾는 중...</h2>
+        <p id="matchStatus" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">랜덤 매치를 누른 상대를 기다리고 있습니다</p>
         <button id="cancelMatchBtn" class="btn btn-dark">매칭 취소</button>
       </div>
     </section>
@@ -518,23 +509,12 @@
   </div>
 
   <script>
-    // --- 커스텀 토스트 알림 (alert 대체) ---
-    function showToast(msg) {
-      const root = document.getElementById('appRoot');
-      const el = document.createElement('div');
-      el.className = 'toast-box';
-      el.textContent = msg;
-      root.appendChild(el);
-      setTimeout(() => el.remove(), 2400);
-    }
-
     // --- 사운드 효과 (Web Audio API) ---
     let soundOn = true;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = AudioCtx ? new AudioCtx() : null;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     function playTone(freq, type = 'sine', duration = 0.12, delay = 0) {
-      if (!soundOn || !audioCtx) return;
+      if (!soundOn) return;
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -566,7 +546,7 @@
     let conn = null;
     let isBotMode = false;
     let isMatchSearching = false;
-    let matchTimer = null;
+    let matchLoopTimer = null;
     let myName = '';
     let oppName = '상대방';
     let roomCode = '';
@@ -591,6 +571,7 @@
     const roomCodeInput = document.getElementById('roomCodeInput');
     const lobbyStatus = document.getElementById('lobbyStatus');
     const matchStatus = document.getElementById('matchStatus');
+    const matchCountBadge = document.getElementById('matchCountBadge');
     const waitStatus = document.getElementById('waitStatus');
     const leaveBtn = document.getElementById('leaveBtn');
 
@@ -605,7 +586,6 @@
     }
     setRandomNick();
 
-    // URL 파라미터(?room=XXXXX) 자동 입력 처리
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('room')) {
       roomCodeInput.value = urlParams.get('room').toUpperCase().slice(0, 5);
@@ -614,124 +594,129 @@
 
     // --- PeerJS P2P 통신 ---
     const PEER_PREFIX = 'neon-rps-arena-2026-';
-    const MATCH_SLOTS = 8;
+    // 1:1 매칭용 공용 대기 ID (누군가 먼저 1/2로 대기 중이면 2/2로 즉시 입장)
+    const RANDOM_LOBBY_ID = `${PEER_PREFIX}1v1-match-lobby`;
 
-    function generateCode() {
+    function generateCode(len = 5) {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let res = '';
-      for (let i = 0; i < 5; i++) res += chars[Math.floor(Math.random() * chars.length)];
+      for (let i = 0; i < len; i++) res += chars[Math.floor(Math.random() * chars.length)];
       return res;
     }
 
     function cleanupNetwork() {
       isMatchSearching = false;
-      if (matchTimer) { clearTimeout(matchTimer); matchTimer = null; }
+      if (matchLoopTimer) { clearTimeout(matchLoopTimer); matchLoopTimer = null; }
       if (conn) { conn.close(); conn = null; }
       if (peer) { peer.destroy(); peer = null; }
       isBotMode = false;
     }
 
-    // ==========================================
-    // 랜덤 매치 (슬롯 기반 P2P 매칭)
-    // ==========================================
+    // ========================================================
+    // 1:1 (2/2) 랜덤 매치
+    // ========================================================
     document.getElementById('randomMatchBtn').addEventListener('click', () => {
       sfx.click();
       myName = nicknameInput.value.trim() || '플레이어';
       cleanupNetwork();
       isMatchSearching = true;
+      matchCountBadge.textContent = '인원 1 / 2';
+      matchStatus.textContent = '매칭 대기열 확인 중...';
       showScreen('match');
-      matchStatus.textContent = '랜덤 매칭 서버 접속 중...';
 
-      const probePeer = new Peer();
-      peer = probePeer;
-
-      probePeer.on('open', () => {
-        if (!isMatchSearching) return;
-        const slots = Array.from({ length: MATCH_SLOTS }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
-        tryConnectNextSlot(probePeer, slots, 0);
-      });
-
-      probePeer.on('error', () => {
-        if (!isMatchSearching) return;
-        hostRandomSlot();
-      });
+      start1v1RandomMatch();
     });
 
-    function tryConnectNextSlot(probePeer, slots, index) {
+    function start1v1RandomMatch() {
       if (!isMatchSearching) return;
 
-      if (index >= slots.length) {
-        probePeer.destroy();
-        hostRandomSlot();
-        return;
-      }
-
-      const slotNum = slots[index];
-      const targetId = `${PEER_PREFIX}random-slot-${slotNum}`;
-      matchStatus.textContent = `대기 중인 상대 탐색 중... (${index + 1}/${slots.length})`;
-
-      const tempConn = probePeer.connect(targetId, { reliable: true });
-      let settled = false;
-
-      const timeout = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        tempConn.close();
-        tryConnectNextSlot(probePeer, slots, index + 1);
-      }, 1100);
-
-      tempConn.on('open', () => {
-        if (settled || !isMatchSearching) return;
-        settled = true;
-        clearTimeout(timeout);
-        isMatchSearching = false;
-        conn = tempConn;
-        sfx.match();
-        setupConnection();
-      });
-
-      tempConn.on('error', () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        tryConnectNextSlot(probePeer, slots, index + 1);
-      });
-    }
-
-    function hostRandomSlot() {
-      if (!isMatchSearching) return;
-      const slotNum = Math.floor(Math.random() * MATCH_SLOTS) + 1;
-      const hostId = `${PEER_PREFIX}random-slot-${slotNum}`;
-      matchStatus.textContent = `매칭 대기열 #${slotNum}에서 상대를 기다리는 중...`;
-
-      const hostPeer = new Peer(hostId);
+      // 1단계: 내가 먼저 1/2 대기 호스트가 될 수 있는지 시도
+      const hostPeer = new Peer(RANDOM_LOBBY_ID);
       peer = hostPeer;
 
+      // 내가 1/2로 대기 등록 성공 → 다른 사람이 랜덤 매치 누를 때까지 대기
       hostPeer.on('open', () => {
         if (!isMatchSearching) return;
-        matchStatus.textContent = `상대 매칭 대기 중... (대기열 #${slotNum})`;
+        matchCountBadge.textContent = '인원 1 / 2';
+        matchStatus.textContent = '랜덤 매치를 누른 상대 1명을 기다리는 중...';
       });
 
+      // 상대방 1명이 들어옴 → 2/2 매칭 성사!
       hostPeer.on('connection', (incomingConn) => {
         if (!isMatchSearching || conn) {
+          // 이미 2/2가 찼으면 추가 접속 차단
           incomingConn.close();
           return;
         }
         isMatchSearching = false;
         conn = incomingConn;
+        matchCountBadge.textContent = '인원 2 / 2';
+        matchStatus.textContent = '매칭 완료! 게임을 시작합니다.';
         sfx.match();
         setupConnection();
       });
 
+      // 이미 다른 사람(1/2)이 대기 중이라면 unavailable-id 에러 발생 → 그 사람에게 2/2로 연결!
       hostPeer.on('error', (err) => {
         if (!isMatchSearching) return;
+        hostPeer.destroy();
+
         if (err.type === 'unavailable-id') {
-          hostPeer.destroy();
-          matchTimer = setTimeout(hostRandomSlot, 300);
+          joinWaitingOpponent();
         } else {
-          matchStatus.textContent = '매칭 재시도 중...';
-          matchTimer = setTimeout(hostRandomSlot, 800);
+          matchStatus.textContent = '연결 재시도 중...';
+          matchLoopTimer = setTimeout(start1v1RandomMatch, 800);
         }
+      });
+    }
+
+    function joinWaitingOpponent() {
+      if (!isMatchSearching) return;
+      matchStatus.textContent = '대기 중인 상대 발견! 연결 중...';
+
+      const guestPeer = new Peer();
+      peer = guestPeer;
+
+      guestPeer.on('open', () => {
+        if (!isMatchSearching) return;
+        const tempConn = guestPeer.connect(RANDOM_LOBBY_ID, { reliable: true });
+        let connected = false;
+
+        // 2.5초 안에 연결이 성사되지 않으면(상대가 방금 매칭됐거나 취소한 경우) 다시 내가 1/2로 대기
+        const timeout = setTimeout(() => {
+          if (connected || !isMatchSearching) return;
+          tempConn.close();
+          guestPeer.destroy();
+          start1v1RandomMatch();
+        }, 2500);
+
+        tempConn.on('open', () => {
+          if (!isMatchSearching || conn) {
+            tempConn.close();
+            return;
+          }
+          connected = true;
+          clearTimeout(timeout);
+          isMatchSearching = false;
+          conn = tempConn;
+          matchCountBadge.textContent = '인원 2 / 2';
+          matchStatus.textContent = '매칭 완료! 게임을 시작합니다.';
+          sfx.match();
+          setupConnection();
+        });
+
+        tempConn.on('error', () => {
+          if (connected || !isMatchSearching) return;
+          clearTimeout(timeout);
+          guestPeer.destroy();
+          matchLoopTimer = setTimeout(start1v1RandomMatch, 400);
+        });
+      });
+
+      guestPeer.on('error', () => {
+        if (!isMatchSearching) return;
+        guestPeer.destroy();
+        matchLoopTimer = setTimeout(start1v1RandomMatch, 600);
       });
     }
 
@@ -740,14 +725,14 @@
       resetToLobby();
     });
 
-    // ==========================================
+    // ========================================================
     // 비공개 방 만들기 & 입장
-    // ==========================================
+    // ========================================================
     document.getElementById('createRoomBtn').addEventListener('click', () => {
       sfx.click();
       myName = nicknameInput.value.trim() || '플레이어1';
       cleanupNetwork();
-      roomCode = generateCode();
+      roomCode = generateCode(5);
       lobbyStatus.textContent = '온라인 방 생성 중...';
 
       peer = new Peer(PEER_PREFIX + roomCode);
@@ -829,7 +814,7 @@
       });
 
       conn.on('close', () => {
-        showToast('상대방과의 연결이 끊어졌습니다.');
+        alert('상대방과의 연결이 끊어졌습니다.');
         resetToLobby();
       });
     }
@@ -1036,27 +1021,15 @@
       e.target.textContent = soundOn ? '🔊' : '🔇';
     });
 
-    function copyTextFallback(text, successMsg) {
-      const temp = document.createElement('input');
-      temp.value = text;
-      document.body.appendChild(temp);
-      temp.select();
-      try {
-        document.execCommand('copy');
-        waitStatus.textContent = successMsg;
-      } catch (e) {
-        waitStatus.textContent = text;
-      }
-      document.body.removeChild(temp);
-    }
-
     document.getElementById('copyCodeBtn').addEventListener('click', () => {
-      copyTextFallback(roomCode, '✅ 방 코드가 복사되었습니다!');
+      navigator.clipboard.writeText(roomCode);
+      waitStatus.textContent = '✅ 방 코드가 복사되었습니다!';
     });
 
     document.getElementById('copyLinkBtn').addEventListener('click', () => {
       const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
-      copyTextFallback(url, '✅ 초대 링크가 복사되었습니다! 친구에게 공유하세요.');
+      navigator.clipboard.writeText(url);
+      waitStatus.textContent = '✅ 초대 링크가 복사되었습니다! 친구에게 공유하세요.';
     });
 
     function resetToLobby() {
